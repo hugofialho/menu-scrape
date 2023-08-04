@@ -31,24 +31,24 @@ const onRequest = async (interceptedRequest) => {
     return;
   }
 
-  // if (interceptedRequest.url().endsWith('7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html')) {
-  //   interceptedRequest.continue();
-  //   return;
-  // }
+  if (interceptedRequest.url().endsWith('7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html')) {
+    interceptedRequest.continue();
+    return;
+  }
 
-  // if (interceptedRequest.url().includes('file://')) {
-  //   const newUrl = interceptedRequest.url().replace('file:///', 'https://www.ifood.com.br/');
-  //   const resp = await fetch(newUrl)
-  //     .then(res => res.text());
+  if (interceptedRequest.url().includes('file://')) {
+    const newUrl = interceptedRequest.url().replace('file:///', 'https://www.ifood.com.br/');
+    const resp = await fetch(newUrl)
+      .then(res => res.text());
     
-  //   interceptedRequest.respond({
-  //     ok: "OK",
-  //     status: 200,
-  //     body: resp,
-  //   });
+    interceptedRequest.respond({
+      ok: "OK",
+      status: 200,
+      body: resp,
+    });
 
-  //   return;
-  // }
+    return;
+  }
 
 
   const apiRequest = !interceptedRequest.url().split('/').pop().includes('.');
@@ -154,8 +154,8 @@ const getIFoodMenu = async (uri) => {
     }
   });
   await preparePageForTests(page);
-  await page.goto(uri);
-  // await page.goto(`file://${__dirname}/7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html`);
+  // await page.goto(uri);
+  await page.goto(`file://${__dirname}/7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html`);
 
   for (let i = 0; i < 30; i++) {
     await sleep(1000);

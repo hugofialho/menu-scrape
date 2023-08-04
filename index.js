@@ -1,4 +1,8 @@
 const puppeteer = require("puppeteer");
+const fetch = require('node-fetch');
+
+let catalogJson = null;
+let merchantId = null;
 
 const block = [
   "google",
@@ -18,7 +22,7 @@ function sleep(ms) {
   });
 }
 
-const onRequest = (interceptedRequest) => {
+const onRequest = async (interceptedRequest) => {
   if (interceptedRequest.isInterceptResolutionHandled()) return;
 
   if (block.some((b) => interceptedRequest.url().includes(b))) {
@@ -26,18 +30,46 @@ const onRequest = (interceptedRequest) => {
     return;
   }
 
-  interceptedRequest.continue();
-};
-
-let catalogJson = null;
-const onResponse = async (response) => {
-  console.log(response.status(), response.url());
-  if (
-    response.request().method() === "GET" &&
-    response.url().endsWith(`/catalog`)
-  ) {
-    catalogJson = await response.json();
+  if (interceptedRequest.url().endsWith('7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html')) {
+    interceptedRequest.continue();
+    return;
   }
+
+  if (interceptedRequest.url().includes('file://')) {
+    const newUrl = interceptedRequest.url().replace('file:///', 'https://www.ifood.com.br/');
+    const resp = await fetch(newUrl)
+      .then(res => res.text());
+    
+    interceptedRequest.respond({
+      ok: "OK",
+      status: 200,
+      body: resp,
+    });
+
+    return;
+  }
+
+  if (
+    interceptedRequest.method() === "GET" &&
+    interceptedRequest.url().endsWith(`/catalog`)
+  ) {
+    const newCatalog = `https://wsloja.ifood.com.br/ifood-ws-v3/v1/merchants/${merchantId}/catalog`;
+    const headers = interceptedRequest.headers();
+    const catalogText = await fetch(newCatalog, { headers })
+      .then(res => res.text());
+
+    catalogJson = JSON.parse(catalogText);
+
+    interceptedRequest.respond({
+      ok: "OK",
+      status: 200,
+      body: catalogText,
+    });
+
+    return;
+  }
+
+  interceptedRequest.continue();
 };
 
 const preparePageForTests = async (page) => {
@@ -83,20 +115,26 @@ const preparePageForTests = async (page) => {
 
 const getIFoodMenu = async (uri) => {
   if (!uri) {
-    uri =
-      "https://www.ifood.com.br/delivery/sao-jose-dos-campos-sp/churraskilo-bethania-jardim-sao-dimas/65565aaf-c775-4dcf-87e5-2d5a9b44c403";
+    //html estatico é do churraskilo 9 de julho
+    uri = "https://www.ifood.com.br/delivery/sao-jose-dos-campos-sp/churraskilo-bethania-jardim-sao-dimas/65565aaf-c775-4dcf-87e5-2d5a9b44c403";
   }
 
+  merchantId = uri.split('/').pop();
   catalogJson = null;
+
   const browser = await puppeteer.launch({
-    args: ["--no-sandbox"],
-    headless: `new`,
+    args: ["--no-sandbox",
+    '--disable-web-security',
+    '--disable-features=IsolateOrigins',
+    '--disable-site-isolation-trials'
+  ],
+    headless: false,
+    devtools: true
   });
   const page = await browser.newPage();
-  page.on("response", onResponse);
   page.on("request", onRequest);
   await preparePageForTests(page);
-  await page.goto(uri);
+  await page.goto(`file://${__dirname}/7fc8fca5-bbb6-4c19-9b9e-baa3ef6169e4.html`);
 
   for (let i = 0; i < 30; i++) {
     await sleep(1000);
@@ -105,7 +143,7 @@ const getIFoodMenu = async (uri) => {
     }
   }
 
-  await browser.close();
+  // await browser.close();
 
   console.log(`finish`, catalogJson);
 
